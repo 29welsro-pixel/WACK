@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+</head>
+<body>
+    <a-scene>
+        <!-- Ground -->
+        <a-plane position="0 0 -4" rotation="-90 0 0" width="12" height="10" color="#228B22"></a-plane>
+
+        <!-- Holes (dark circles) -->
+        <a-circle position="-3 0.01 -2" radius="0.9" rotation="-90 0 0" color="#1a1a1a"></a-circle>
+        <a-circle position="-1 0.01 -2" radius="0.9" rotation="-90 0 0" color="#1a1a1a"></a-circle>
+        <a-circle position="1 0.01 -2" radius="0.9" rotation="-90 0 0" color="#1a1a1a"></a-circle>
+        <a-circle position="3 0.01 -2" radius="0.9" rotation="-90 0 0" color="#1a1a1a"></a-circle>
+        <a-circle position="-3 0.01 -4" radius="0.9" rotation="-90 0 0" color="#1a1a1a"></a-circle>
+        <a-circle position="-1 0.01 -4" radius="0.9" rotation="-90 0 0" color="#1a1a1a"></a-circle>
+        <a-circle position="1 0.01 -4" radius="0.9" rotation="-90 0 0" color="#1a1a1a"></a-circle>
+        <a-circle position="3 0.01 -4" radius="0.9" rotation="-90 0 0" color="#1a1a1a"></a-circle>
+
+        <!-- Moles -->
+        <a-box id="mole1" position="-3 -1 -2" width="1.3" height="1.3" depth="1.3" color="#8B4513" class="mole" visible="false"></a-box>
+        <a-sphere id="mole2" position="-1 -1 -2" radius="0.75" color="#654321" class="mole" visible="false"></a-sphere>
+        <a-box id="mole3" position="1 -1 -2" width="1.3" height="1.3" depth="1.3" color="#8B4513" class="mole" visible="false"></a-box>
+        <a-sphere id="mole4" position="3 -1 -2" radius="0.75" color="#654321" class="mole" visible="false"></a-sphere>
+        <a-box id="mole5" position="-3 -1 -4" width="1.3" height="1.3" depth="1.3" color="#8B4513" class="mole" visible="false"></a-box>
+        <a-sphere id="mole6" position="-1 -1 -4" radius="0.75" color="#654321" class="mole" visible="false"></a-sphere>
+        <a-box id="mole7" position="1 -1 -4" width="1.3" height="1.3" depth="1.3" color="#8B4513" class="mole" visible="false"></a-box>
+        <a-sphere id="mole8" position="3 -1 -4" radius="0.75" color="#654321" class="mole" visible="false"></a-sphere>
+
+        <!-- UI Text -->
+        <a-text id="level" position="-3.5 3.5 -3" value="Level: 1" color="gold" scale="2.5 2.5 2.5"></a-text>
+        <a-text id="score" position="-1.5 3 -3" value="Score: 0" color="white" scale="2.5 2.5 2.5"></a-text>
+        <a-text id="timer" position="1.5 3 -3" value="Time: 60" color="white" scale="2.5 2.5 2.5"></a-text>
+        <a-text id="instructions" position="0 2.5 -3" value="Click: Hit | SPACE: Lightning | Q: Thunder | E: Earthquake" color="gold" scale="1.2 1.2 1.2"></a-text>
+        
+        <!-- Ability Displays -->
+        <a-text id="lightning" position="-3 2 -3" value="⚡Lightning: READY" color="cyan" scale="1.5 1.5 1.5"></a-text>
+        <a-text id="thunder" position="-1 1.7 -3" value="🌩️Thunder: LOCKED" color="gray" scale="1.3 1.3 1.3"></a-text>
+        <a-text id="earthquake" position="1 1.4 -3" value="🌍Earthquake: LOCKED" color="gray" scale="1.3 1.3 1.3"></a-text>
+
+        <!-- Camera with cursor and Thor's Hammer -->
+        <a-camera>
+            <a-cursor id="cursor" color="yellow" raycaster="objects: .mole" scale="0.3 0.3 0.3"></a-cursor>
+            
+            <!-- Thor's Hammer -->
+            <a-entity id="thorHammer" position="0.4 -0.3 -1" rotation="0 0 -10">
+                <a-cylinder position="0 -0.4 0" radius="0.04" height="1" color="#8B4513"></a-cylinder>
+                <a-box position="0 0.1 0" width="0.6" height="0.3" depth="0.25" color="#C0C0C0" metalness="0.9" roughness="0.1"></a-box>
+                <a-box position="0.15 0.1 0" width="0.05" height="0.05" depth="0.3" color="#00BFFF" emissive="#0080FF" emissive-intensity="0.3"></a-box>
+                <a-box position="-0.15 0.1 0" width="0.05" height="0.05" depth="0.3" color="#00BFFF" emissive="#0080FF" emissive-intensity="0.3"></a-box>
+                <a-sphere position="0 -0.9 0" radius="0.06" color="#8B4513"></a-sphere>
+            </a-entity>
+        </a-camera>
+
+        <!-- Sky -->
+        <a-sky color="#87CEEB"></a-sky>
+    </a-scene>
+
+    <script>
+        let score = 0;
+        let timeLeft = 60;
+        let gameRunning = false;
+        let moles = [];
+        let thorHammer = null;
+        let currentLevel = 1;
+        
+        // Thor's Abilities
+        let lightningReady = true;
+        let lightningCooldown = 0;
+        let thunderReady = true;
+        let thunderCooldown = 0;
+        let earthquakeReady = true;
+        let earthquakeCooldown = 0;
+
+        // Initialize game
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                console.log("Starting game initialization...");
+                initGame();
+            }, 2000);
+        });
+
+        function initGame() {
+            moles = document.querySelectorAll('.mole');
+            thorHammer = document.getElementById('thorHammer');
+            
+            console.log("Found " + moles.length + " moles");
+
+            // Add mole click listeners
+            moles.forEach((mole, index) => {
+                mole.addEventListener('click', function() {
+                    console.log("Mole clicked: " + index);
+                    hitMole(mole);
+                });
+            });
+
+            // Add keyboard listeners for Thor's abilities
+            document.addEventListener('keydown', function(event) {
+                if (event.code === 'Space' && lightningReady && gameRunning) {
+                    event.preventDefault();
+                    console.log("LIGHTNING STRIKE!");
+                    lightningStrike();
+                } else if (event.code === 'KeyQ' && thunderReady && gameRunning && currentLevel >= 2) {
+                    console.log("THUNDER CRASH!");
+                    thunderCrash();
+                } else if (event.code === 'KeyE' && earthquakeReady && gameRunning && currentLevel >= 3) {
+                    console.log("EARTHQUAKE SMASH!");
+                    earthquakeSmash();
+                }
+            });
+
+            startGame();
+        }
+
+        function startGame() {
+            console.log("Game starting...");
+            gameRunning = true;
+            score = 0;
+            timeLeft = 60;
+            currentLevel = 1;
+            lightningReady = true;
+            lightningCooldown = 0;
+            thunderReady = true;
+            thunderCooldown = 0;
+            earthquakeReady = true;
+            earthquakeCooldown = 0;
+            
+            updateUI();
+            updateAbilityDisplays();
+
+            // Game timer
+            const gameTimer = setInterval(() => {
+                timeLeft--;
+                
+                // Update cooldowns
+                if (lightningCooldown > 0) {
+                    lightningCooldown--;
+                    if (lightningCooldown === 0) lightningReady = true;
+                }
+                if (thunderCooldown > 0) {
+                    thunderCooldown--;
+                    if (thunderCooldown === 0) thunderReady = true;
+                }
+                if (earthquakeCooldown > 0) {
+                    earthquakeCooldown--;
+                    if (earthquakeCooldown === 0) earthquakeReady = true;
+                }
+                
+                // Level progression based on score
+                if (score >= 300 && currentLevel === 1) {
+                    currentLevel = 2;
+                    console.log("Level 2 unlocked! Thunder Crash ability available!");
+                } else if (score >= 700 && currentLevel === 2) {
+                    currentLevel = 3;
+                    console.log("Level 3 unlocked! Earthquake Smash ability available!");
+                }
+                
+                updateUI();
+                updateAbilityDisplays();
+                
+                if (timeLeft <= 0) {
+                    clearInterval(gameTimer);
+                    endGame();
+                }
+            }, 1000);
+
+            // Start spawning moles immediately
+            spawnRandomMoles();
+        }
+
+        function spawnRandomMoles() {
+            if (!gameRunning) return;
+
+            console.log("Spawning moles for level " + currentLevel + "...");
+
+            // More moles spawn on higher levels
+            const maxMoles = Math.min(currentLevel + 1, 4);
+            const numMoles = Math.floor(Math.random() * maxMoles) + 1;
+            console.log("Will spawn " + numMoles + " moles");
+            
+            // Get available moles
+            const availableMoles = Array.from(moles).filter(m => !m.getAttribute('visible'));
+            console.log("Available moles: " + availableMoles.length);
+            
+            for (let i = 0; i < numMoles && availableMoles.length > 0; i++) {
+                const randomIndex = Math.floor(Math.random() * availableMoles.length);
+                const mole = availableMoles.splice(randomIndex, 1)[0];
+                console.log("Selected mole: " + mole.id);
+                showMole(mole);
+            }
+
+            // Schedule next spawn - gets faster each level
+            const baseSpawnTime = Math.max(2500 - (currentLevel * 500), 1000);
+            const nextSpawn = Math.random() * baseSpawnTime + 1000;
+            console.log("Next spawn in: " + nextSpawn + "ms");
+            setTimeout(spawnRandomMoles, nextSpawn);
+        }
+
+        function showMole(mole) {
+            console.log("Showing mole: " + mole.id);
+            mole.setAttribute('visible', true);
+            
+            // Move mole up
+            const pos = mole.getAttribute('position');
+            mole.setAttribute('position', pos.x + ' 0.6 ' + pos.z);
+            console.log("Mole moved to: " + pos.x + ", 0.6, " + pos.z);
+
+            // Quick mole chance increases with level
+            const quickChance = 0.2 + (currentLevel * 0.15);
+            const isQuick = Math.random() < quickChance;
+            
+            // Stay time decreases with level
+            const baseStayTime = Math.max(2500 - (currentLevel * 400), 800);
+            const stayTime = isQuick ? baseStayTime * 0.6 : baseStayTime;
+            
+            console.log("Mole will stay for: " + stayTime + "ms" + (isQuick ? " (QUICK)" : ""));
+
+            // Mark quick moles with gold color
+            if (isQuick) {
+                const originalColor = mole.getAttribute('color');
+                mole.setAttribute('color', '#FFD700');
+                setTimeout(() => {
+                    if (mole.getAttribute('visible')) {
+                        mole.setAttribute('color', originalColor);
+                    }
+                }, 400);
+            }
+
+            // Auto-hide mole
+            setTimeout(() => {
+                if (mole.getAttribute('visible') && gameRunning) {
+                    console.log("Time up! Hiding mole: " + mole.id);
+                    hideMole(mole);
+                }
+            }, stayTime);
+        }
+
+        function hideMole(mole) {
+            console.log("Hiding mole: " + mole.id);
+            const pos = mole.getAttribute('position');
+            mole.setAttribute('position', pos.x + ' -1 ' + pos.z);
+            
+            setTimeout(() => {
+                mole.setAttribute('visible', false);
+                // FIXED: Properly reset color
+                const originalColor = mole.id.includes('2') || mole.id.includes('4') || mole.id.includes('6') || mole.id.includes('8') ? '#654321' : '#8B4513';
+                mole.setAttribute('color', originalColor);
+                console.log("Mole " + mole.id + " hidden and reset");
+            }, 200);
+        }
+
+        function hitMole(mole) {
+            if (!mole.getAttribute('visible') || !gameRunning) return;
+
+            const isQuick = mole.getAttribute('color') === '#FFD700';
+            const basePoints = 15 + (currentLevel * 5);
+            const points = isQuick ? basePoints + 10 : basePoints;
+            
+            score += points;
+            console.log("Hit! +" + points + " points. Total: " + score);
+            
+            // Hammer animation
+            thorHammer.setAttribute('rotation', '45 0 -10');
+            setTimeout(() => {
+                thorHammer.setAttribute('rotation', '0 0 -10');
+            }, 200);
+
+            // Mole squish effect
+            mole.setAttribute('color', 'red');
+            mole.setAttribute('scale', '1.2 0.3 1.2');
+            
+            setTimeout(() => {
+                hideMole(mole);
+                mole.setAttribute('scale', '1 1 1');
+            }, 300);
+
+            updateUI();
+        }
+
+        // THOR'S ABILITIES (rest of the functions remain the same...)
+        
+        function lightningStrike() {
+            if (!lightningReady || !gameRunning) return;
+
+            console.log("⚡ LIGHTNING STRIKE! ⚡");
+            
+            lightningReady = false;
+            lightningCooldown = 25;
+
+            let destroyed = 0;
+            moles.forEach
+            moles.forEach(mole => {
+                if (mole.getAttribute('visible')) {
+                    destroyed++;
+                    
+                    // Lightning bolt effect
+                    const pos = mole.getAttribute('position');
+                    const lightning = document.createElement('a-cylinder');
+                    lightning.setAttribute('position', pos.x + ' 2 ' + pos.z);
+                    lightning.setAttribute('radius', '0.05');
+                    lightning.setAttribute('height', '3');
+                    lightning.setAttribute('color', '#00BFFF');
+                    lightning.setAttribute('emissive', '#FFFFFF');
+                    lightning.setAttribute('emissive-intensity', '1');
+                    
+                    document.querySelector('a-scene').appendChild(lightning);
+                    
+                    setTimeout(() => {
+                        if (lightning.parentNode) {
+                            document.querySelector('a-scene').removeChild(lightning);
+                        }
+                    }, 500);
+
+                    // Destroy mole
+                    mole.setAttribute('color', 'white');
+                    mole.setAttribute('scale', '2 2 2');
+                    setTimeout(() => {
+                        hideMole(mole);
+                        mole.setAttribute('scale', '1 1 1');
+                    }, 200);
+                }
+            });
+
+            score += destroyed * 30;
+            console.log("Lightning destroyed " + destroyed + " moles!");
+
+            // Hammer lightning effect
+            thorHammer.setAttribute('rotation', '0 0 90');
+            const hammerHead = thorHammer.querySelector('a-box');
+            hammerHead.setAttribute('emissive', '#00BFFF');
+            hammerHead.setAttribute('emissive-intensity', '1');
+
+            setTimeout(() => {
+                thorHammer.setAttribute('rotation', '0 0 -10');
+                hammerHead.setAttribute('emissive', '#000000');
+                hammerHead.setAttribute('emissive-intensity', '0');
+            }, 800);
+
+            updateUI();
+        }
+
+        function thunderCrash() {
+            if (!thunderReady || !gameRunning || currentLevel < 2) return;
+
+            console.log("🌩️ THUNDER CRASH! 🌩️");
+            
+            thunderReady = false;
+            thunderCooldown = 20;
+
+            let destroyed = 0;
+            let stunned = 0;
+            
+            moles.forEach((mole, index) => {
+                if (mole.getAttribute('visible')) {
+                    const shouldDestroy = Math.random() < 0.6; // 60% chance to destroy each visible mole
+                    
+                    if (shouldDestroy) {
+                        destroyed++;
+                        
+                        // Thunder crash effect
+                        const pos = mole.getAttribute('position');
+                        const thunder = document.createElement('a-sphere');
+                        thunder.setAttribute('position', pos.x + ' 1 ' + pos.z);
+                        thunder.setAttribute('radius', '0.8');
+                        thunder.setAttribute('color', '#FFD700');
+                        thunder.setAttribute('emissive', '#FFFF00');
+                        thunder.setAttribute('emissive-intensity', '1');
+                        thunder.setAttribute('opacity', '0.7');
+                        
+                        document.querySelector('a-scene').appendChild(thunder);
+                        
+                        // Expanding thunder effect
+                        thunder.setAttribute('animation', 'property: scale; to: 3 3 3; dur: 400; easing: easeOutQuad');
+                        thunder.setAttribute('animation__fade', 'property: opacity; to: 0; dur: 400; easing: easeOutQuad');
+                        
+                        setTimeout(() => {
+                            if (thunder.parentNode) {
+                                document.querySelector('a-scene').removeChild(thunder);
+                            }
+                        }, 500);
+
+                        // Destroy mole with thunder effect
+                        mole.setAttribute('color', 'yellow');
+                        mole.setAttribute('scale', '0.1 2 0.1');
+                        setTimeout(() => {
+                            hideMole(mole);
+                            mole.setAttribute('scale', '1 1 1');
+                        }, 300);
+                    } else {
+                        // Stun effect - mole turns purple and stays longer
+                        stunned++;
+                        mole.setAttribute('color', '#800080');
+                        setTimeout(() => {
+                            if (mole.getAttribute('visible')) {
+                                const originalColor = mole.id.includes('2') || mole.id.includes('4') || mole.id.includes('6') || mole.id.includes('8') ? '#654321' : '#8B4513';
+                                mole.setAttribute('color', originalColor);
+                            }
+                        }, 2000);
+                    }
+                }
+            });
+
+            score += destroyed * 25 + stunned * 5;
+            console.log("Thunder destroyed " + destroyed + " moles and stunned " + stunned + " moles!");
+
+            // Hammer thunder effect
+            thorHammer.setAttribute('rotation', '90 0 0');
+            const hammerHead = thorHammer.querySelector('a-box');
+            hammerHead.setAttribute('emissive', '#FFD700');
+            hammerHead.setAttribute('emissive-intensity', '1');
+
+            // Sky flash effect
+            document.querySelector('a-sky').setAttribute('color', '#FFFF99');
+            setTimeout(() => {
+                document.querySelector('a-sky').setAttribute('color', '#87CEEB');
+            }, 300);
+
+            setTimeout(() => {
+                thorHammer.setAttribute('rotation', '0 0 -10');
+                hammerHead.setAttribute('emissive', '#000000');
+                hammerHead.setAttribute('emissive-intensity', '0');
+            }, 1000);
+
+            updateUI();
+        }
+
+        function earthquakeSmash() {
+            if (!earthquakeReady || !gameRunning || currentLevel < 3) return;
+
+            console.log("🌍 EARTHQUAKE SMASH! 🌍");
+            
+            earthquakeReady = false;
+            earthquakeCooldown = 35;
+
+            let destroyed = 0;
+            
+            // Ground shake effect
+            const ground = document.querySelector('a-plane');
+            ground.setAttribute('animation__shake1', 'property: rotation; to: -90 2 2; dur: 100; easing: easeInOutQuad');
+            setTimeout(() => {
+                ground.setAttribute('animation__shake2', 'property: rotation; to: -90 -2 -2; dur: 100; easing: easeInOutQuad');
+            }, 100);
+            setTimeout(() => {
+                ground.setAttribute('animation__shake3', 'property: rotation; to: -90 1 -1; dur: 100; easing: easeInOutQuad');
+            }, 200);
+            setTimeout(() => {
+                ground.setAttribute('animation__reset', 'property: rotation; to: -90 0 0; dur: 200; easing: easeOutQuad');
+            }, 300);
+
+            // Earthquake destroys ALL visible moles
+            moles.forEach(mole => {
+                if (mole.getAttribute('visible')) {
+                    destroyed++;
+                    
+                    // Earthquake crack effects around each mole
+                    const pos = mole.getAttribute('position');
+                    for (let i = 0; i < 3; i++) {
+                        const crack = document.createElement('a-box');
+                        const angle = (i * 120) * Math.PI / 180;
+                        const crackX = pos.x + Math.cos(angle) * 0.5;
+                        const crackZ = pos.z + Math.sin(angle) * 0.5;
+                        
+                        crack.setAttribute('position', crackX + ' 0.01 ' + crackZ);
+                        crack.setAttribute('width', '0.1');
+                        crack.setAttribute('height', '0.02');
+                        crack.setAttribute('depth', '1');
+                        crack.setAttribute('color', '#654321');
+                        crack.setAttribute('rotation', '0 ' + (i * 120) + ' 0');
+                        
+                        document.querySelector('a-scene').appendChild(crack);
+                        
+                        // Remove cracks after effect
+                        setTimeout(() => {
+                            if (crack.parentNode) {
+                                document.querySelector('a-scene').removeChild(crack);
+                            }
+                        }, 2000);
+                    }
+
+                    // Mole gets crushed into the ground
+                    mole.setAttribute('color', '#8B4513');
+                    mole.setAttribute('scale', '2 0.1 2');
+                    mole.setAttribute('rotation', '0 0 ' + (Math.random() * 360));
+                    
+                    setTimeout(() => {
+                        hideMole(mole);
+                        mole.setAttribute('scale', '1 1 1');
+                        mole.setAttribute('rotation', '0 0 0');
+                    }, 500);
+                }
+            });
+
+            score += destroyed * 40; // Most points for earthquake
+            console.log("Earthquake destroyed " + destroyed + " moles!");
+
+            // Epic hammer earthquake effect
+            thorHammer.setAttribute('rotation', '180 0 0');
+            thorHammer.setAttribute('animation__spin', 'property: rotation; to: 540 0 0; dur: 1000; easing: easeOutQuart');
+            
+            const hammerHead = thorHammer.querySelector('a-box');
+            hammerHead.setAttribute('emissive', '#8B4513');
+            hammerHead.setAttribute('emissive-intensity', '1');
+
+            setTimeout(() => {
+                thorHammer.setAttribute('rotation', '0 0 -10');
+                hammerHead.setAttribute('emissive', '#000000');
+                hammerHead.setAttribute('emissive-intensity', '0');
+            }, 1200);
+
+            updateUI();
+        }
+
+        function updateAbilityDisplays() {
+            // Lightning
+            const lightningEl = document.getElementById('lightning');
+            if (lightningReady) {
+                lightningEl.setAttribute('value', '⚡Lightning: READY');
+                lightningEl.setAttribute('color', 'cyan');
+            } else {
+                lightningEl.setAttribute('value', '⚡Lightning: ' + lightningCooldown + 's');
+                lightningEl.setAttribute('color', 'orange');
+            }
+
+            // Thunder (Level 2+)
+            const thunderEl = document.getElementById('thunder');
+            if (currentLevel >= 2) {
+                if (thunderReady) {
+                    thunderEl.setAttribute('value', '🌩️Thunder: READY');
+                    thunderEl.setAttribute('color', 'yellow');
+                } else {
+                    thunderEl.setAttribute('value', '🌩️Thunder: ' + thunderCooldown + 's');
+                    thunderEl.setAttribute('color', 'orange');
+                }
+            } else {
+                thunderEl.setAttribute('value', '🌩️Thunder: LOCKED');
+                thunderEl.setAttribute('color', 'gray');
+            }
+
+            // Earthquake (Level 3+)
+            const earthquakeEl = document.getElementById('earthquake');
+            if (currentLevel >= 3) {
+                if (earthquakeReady) {
+                    earthquakeEl.setAttribute('value', '🌍Earthquake: READY');
+                    earthquakeEl.setAttribute('color', 'brown');
+                } else {
+                    earthquakeEl.setAttribute('value', '🌍Earthquake: ' + earthquakeCooldown + 's');
+                    earthquakeEl.setAttribute('color', 'orange');
+                }
+            } else {
+                earthquakeEl.setAttribute('value', '🌍Earthquake: LOCKED');
+                earthquakeEl.setAttribute('color', 'gray');
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('level').setAttribute('value', 'Level: ' + currentLevel);
+            document.getElementById('score').setAttribute('value', 'Score: ' + score);
+            document.getElementById('timer').setAttribute('value', 'Time: ' + timeLeft);
+        }
+
+        function endGame() {
+            gameRunning = false;
+            console.log("Game Over! Final Score: " + score + " | Level Reached: " + currentLevel);
+            
+            moles.forEach(mole => {
+                mole.setAttribute('visible', false);
+                // Reset mole position and properties
+                const pos = mole.getAttribute('position');
+                mole.setAttribute('position', pos.x + ' -1 ' + pos.z);
+                const originalColor = mole.id.includes('2') || mole.id.includes('4') || mole.id.includes('6') || mole.id.includes('8') ? '#654321' : '#8B4513';
+                mole.setAttribute('color', originalColor);
+                mole.setAttribute('scale', '1 1 1');
+                mole.setAttribute('rotation', '0 0 0');
+            });
+
+            let message = "Game Over! Score: " + score + " | Level: " + currentLevel;
+            if (currentLevel === 3 && score >= 1200) {
+                message = "🎉 THOR'S CHAMPION! You mastered all abilities! Score: " + score + " 🎉";
+            }
+
+            document.getElementById('instructions').setAttribute('value', message + ' - Restarting...');
+            
+            setTimeout(() => {
+                document.getElementById('instructions').setAttribute('value', 'Click: Hit | SPACE: Lightning | Q: Thunder | E: Earthquake');
+                startGame();
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
